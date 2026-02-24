@@ -16,6 +16,8 @@ from .mixin import IDManagerMixin, IDWarning
 from .region import Region, Intersection, Union
 from .bounding_box import BoundingBox
 from .tpms_function import *
+from ._xml import get_elem_list, get_text
+
 
 _BOUNDARY_TYPES = {'transmission', 'vacuum', 'reflective', 'periodic', 'white'}
 _ALBEDO_BOUNDARIES = {'reflective', 'periodic', 'white'}
@@ -39,10 +41,13 @@ class SurfaceCoefficient:
     value : float or str
         Value of the coefficient (float) or the name of the coefficient that
         it is equivalent to (str).
+    positive : bool
+        Does the surface coefficient must be positive. Defaults to False.
 
     """
-    def __init__(self, value):
+    def __init__(self, value, positive=False):
         self.value = value
+        self.positive = positive
 
     def __get__(self, instance, owner=None):
         if instance is None:
@@ -57,6 +62,8 @@ class SurfaceCoefficient:
         if isinstance(self.value, Real):
             raise AttributeError('This coefficient is read-only')
         check_type(f'{self.value} coefficient', value, Real)
+        if self.positive:
+            check_greater_than(f'{self.value} coefficient', value, 0.0)
         instance._coefficients[self.value] = value
 
 
@@ -124,9 +131,8 @@ class Surface(IDManagerMixin, ABC):
     boundary_type : {'transmission', 'vacuum', 'reflective', 'periodic', 'white'}, optional
         Boundary condition that defines the behavior for particles hitting the
         surface. Defaults to transmissive boundary condition where particles
-        freely pass through the surface. Note that periodic boundary conditions
-        can only be applied to x-, y-, and z-planes, and only axis-aligned
-        periodicity is supported.
+        freely pass through the surface. Note that only axis-aligned
+        periodicity is supported around the x-, y-, and z-axes.
     albedo : float, optional
         Albedo of the surfaces as a ratio of particle weight after interaction
         with the surface to the initial weight. Values must be positive. Only
@@ -153,6 +159,7 @@ class Surface(IDManagerMixin, ABC):
 
     """
 
+    min_id = 1
     next_id = 1
     used_ids = set()
     _atol = 1.e-12
@@ -456,17 +463,17 @@ class Surface(IDManagerMixin, ABC):
         """
 
         # Determine appropriate class
-        surf_type = elem.get('type')
+        surf_type = get_text(elem, "type")
         cls = _SURFACE_CLASSES[surf_type]
 
         # Determine ID, boundary type, boundary albedo, coefficients
         kwargs = {}
-        kwargs['surface_id'] = int(elem.get('id'))
-        kwargs['boundary_type'] = elem.get('boundary', 'transmission')
+        kwargs['surface_id'] = int(get_text(elem, "id"))
+        kwargs['boundary_type'] = get_text(elem, "boundary", "transmission")
         if kwargs['boundary_type'] in _ALBEDO_BOUNDARIES:
-            kwargs['albedo'] = float(elem.get('albedo', 1.0))
-        kwargs['name'] = elem.get('name')
-        coeffs = [float(x) for x in elem.get('coeffs').split()]
+            kwargs['albedo'] = float(get_text(elem, "albedo", 1.0))
+        kwargs['name'] = get_text(elem, "name")
+        coeffs = get_elem_list(elem, "coeffs", float)
         kwargs.update(dict(zip(cls._coeff_keys, coeffs)))
 
         return cls(**kwargs)
@@ -826,8 +833,7 @@ class XPlane(PlaneMixin, Surface):
     boundary_type : {'transmission', 'vacuum', 'reflective', 'periodic', 'white'}, optional
         Boundary condition that defines the behavior for particles hitting the
         surface. Defaults to transmissive boundary condition where particles
-        freely pass through the surface. Only axis-aligned periodicity is
-        supported, i.e., x-planes can only be paired with x-planes.
+        freely pass through the surface.
     albedo : float, optional
         Albedo of the surfaces as a ratio of particle weight after interaction
         with the surface to the initial weight. Values must be positive. Only
@@ -891,8 +897,7 @@ class YPlane(PlaneMixin, Surface):
     boundary_type : {'transmission', 'vacuum', 'reflective', 'periodic', 'white'}, optional
         Boundary condition that defines the behavior for particles hitting the
         surface. Defaults to transmissive boundary condition where particles
-        freely pass through the surface. Only axis-aligned periodicity is
-        supported, i.e., y-planes can only be paired with y-planes.
+        freely pass through the surface.
     albedo : float, optional
         Albedo of the surfaces as a ratio of particle weight after interaction
         with the surface to the initial weight. Values must be positive. Only
@@ -956,8 +961,7 @@ class ZPlane(PlaneMixin, Surface):
     boundary_type : {'transmission', 'vacuum', 'reflective', 'periodic', 'white'}, optional
         Boundary condition that defines the behavior for particles hitting the
         surface. Defaults to transmissive boundary condition where particles
-        freely pass through the surface. Only axis-aligned periodicity is
-        supported, i.e., z-planes can only be paired with z-planes.
+        freely pass through the surface.
     albedo : float, optional
         Albedo of the surfaces as a ratio of particle weight after interaction
         with the surface to the initial weight. Values must be positive. Only
@@ -1268,7 +1272,7 @@ class Cylinder(QuadricMixin, Surface):
     x0 = SurfaceCoefficient('x0')
     y0 = SurfaceCoefficient('y0')
     z0 = SurfaceCoefficient('z0')
-    r = SurfaceCoefficient('r')
+    r = SurfaceCoefficient('r', positive=True)
     dx = SurfaceCoefficient('dx')
     dy = SurfaceCoefficient('dy')
     dz = SurfaceCoefficient('dz')
@@ -1434,7 +1438,7 @@ class XCylinder(QuadricMixin, Surface):
     x0 = SurfaceCoefficient(0.)
     y0 = SurfaceCoefficient('y0')
     z0 = SurfaceCoefficient('z0')
-    r = SurfaceCoefficient('r')
+    r = SurfaceCoefficient('r', positive=True)
     dx = SurfaceCoefficient(1.)
     dy = SurfaceCoefficient(0.)
     dz = SurfaceCoefficient(0.)
@@ -1532,7 +1536,7 @@ class YCylinder(QuadricMixin, Surface):
     x0 = SurfaceCoefficient('x0')
     y0 = SurfaceCoefficient(0.)
     z0 = SurfaceCoefficient('z0')
-    r = SurfaceCoefficient('r')
+    r = SurfaceCoefficient('r', positive=True)
     dx = SurfaceCoefficient(0.)
     dy = SurfaceCoefficient(1.)
     dz = SurfaceCoefficient(0.)
@@ -1630,7 +1634,7 @@ class ZCylinder(QuadricMixin, Surface):
     x0 = SurfaceCoefficient('x0')
     y0 = SurfaceCoefficient('y0')
     z0 = SurfaceCoefficient(0.)
-    r = SurfaceCoefficient('r')
+    r = SurfaceCoefficient('r', positive=True)
     dx = SurfaceCoefficient(0.)
     dy = SurfaceCoefficient(0.)
     dz = SurfaceCoefficient(1.)
@@ -1730,7 +1734,7 @@ class Sphere(QuadricMixin, Surface):
     x0 = SurfaceCoefficient('x0')
     y0 = SurfaceCoefficient('y0')
     z0 = SurfaceCoefficient('z0')
-    r = SurfaceCoefficient('r')
+    r = SurfaceCoefficient('r', positive=True)
 
     def _get_base_coeffs(self):
         x0, y0, z0, r = self.x0, self.y0, self.z0, self.r
@@ -1856,7 +1860,7 @@ class Cone(QuadricMixin, Surface):
     x0 = SurfaceCoefficient('x0')
     y0 = SurfaceCoefficient('y0')
     z0 = SurfaceCoefficient('z0')
-    r2 = SurfaceCoefficient('r2')
+    r2 = SurfaceCoefficient('r2', positive=True)
     dx = SurfaceCoefficient('dx')
     dy = SurfaceCoefficient('dy')
     dz = SurfaceCoefficient('dz')
@@ -1992,7 +1996,7 @@ class XCone(QuadricMixin, Surface):
     x0 = SurfaceCoefficient('x0')
     y0 = SurfaceCoefficient('y0')
     z0 = SurfaceCoefficient('z0')
-    r2 = SurfaceCoefficient('r2')
+    r2 = SurfaceCoefficient('r2', positive=True)
     dx = SurfaceCoefficient(1.)
     dy = SurfaceCoefficient(0.)
     dz = SurfaceCoefficient(0.)
@@ -2094,7 +2098,7 @@ class YCone(QuadricMixin, Surface):
     x0 = SurfaceCoefficient('x0')
     y0 = SurfaceCoefficient('y0')
     z0 = SurfaceCoefficient('z0')
-    r2 = SurfaceCoefficient('r2')
+    r2 = SurfaceCoefficient('r2', positive=True)
     dx = SurfaceCoefficient(0.)
     dy = SurfaceCoefficient(1.)
     dz = SurfaceCoefficient(0.)
@@ -2196,7 +2200,7 @@ class ZCone(QuadricMixin, Surface):
     x0 = SurfaceCoefficient('x0')
     y0 = SurfaceCoefficient('y0')
     z0 = SurfaceCoefficient('z0')
-    r2 = SurfaceCoefficient('r2')
+    r2 = SurfaceCoefficient('r2', positive=True)
     dx = SurfaceCoefficient(0.)
     dy = SurfaceCoefficient(0.)
     dz = SurfaceCoefficient(1.)
@@ -3183,9 +3187,9 @@ class TorusMixin:
     x0 = SurfaceCoefficient('x0')
     y0 = SurfaceCoefficient('y0')
     z0 = SurfaceCoefficient('z0')
-    a = SurfaceCoefficient('a')
-    b = SurfaceCoefficient('b')
-    c = SurfaceCoefficient('c')
+    a = SurfaceCoefficient('a', positive=True)
+    b = SurfaceCoefficient('b', positive=True)
+    c = SurfaceCoefficient('c', positive=True)
 
     def translate(self, vector, inplace=False):
         surf = self if inplace else self.clone()

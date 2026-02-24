@@ -6,7 +6,7 @@
 #include "openmc/search.h"
 #include "openmc/settings.h"
 
-#include "xtensor/xmath.hpp"
+#include "openmc/tensor.h"
 
 namespace openmc {
 
@@ -16,8 +16,8 @@ namespace openmc {
 
 namespace data {
 
-xt::xtensor<double, 1> ttb_e_grid;
-xt::xtensor<double, 1> ttb_k_grid;
+tensor::Tensor<double> ttb_e_grid;
+tensor::Tensor<double> ttb_k_grid;
 vector<Bremsstrahlung> ttb;
 
 } // namespace data
@@ -31,13 +31,13 @@ void thick_target_bremsstrahlung(Particle& p, double* E_lost)
   if (p.material() == MATERIAL_VOID)
     return;
 
-  int photon = static_cast<int>(ParticleType::photon);
+  int photon = ParticleType::photon().transport_index();
   if (p.E() < settings::energy_cutoff[photon])
     return;
 
   // Get bremsstrahlung data for this material and particle type
   BremsstrahlungData* mat;
-  if (p.type() == ParticleType::positron) {
+  if (p.type() == ParticleType::positron()) {
     mat = &model::materials[p.material()]->ttb_->positron;
   } else {
     mat = &model::materials[p.material()]->ttb_->electron;
@@ -112,8 +112,14 @@ void thick_target_bremsstrahlung(Particle& p, double* E_lost)
                std::pow(a * (c - c_l) / (std::exp(w_l) * p_l) + 1.0, 1.0 / a);
 
     if (w > settings::energy_cutoff[photon]) {
+      // If the energy of the secondary photon is larger than the remaining
+      // energy of the primary particle, adjust it to the remaining energy
+      if (*E_lost + w > p.E()) {
+        w = p.E() - *E_lost;
+      }
+
       // Create secondary photon
-      p.create_secondary(p.wgt(), p.u(), w, ParticleType::photon);
+      p.create_secondary(p.wgt(), p.u(), w, ParticleType::photon());
       *E_lost += w;
     }
   }

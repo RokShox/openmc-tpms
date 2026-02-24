@@ -36,8 +36,8 @@ option(OPENMC_ENABLE_COVERAGE "Compile with coverage analysis flags"            
 option(OPENMC_USE_DAGMC       "Enable support for DAGMC (CAD) geometry"              OFF)
 option(OPENMC_USE_LIBMESH     "Enable support for libMesh unstructured mesh tallies" OFF)
 option(OPENMC_USE_MPI         "Enable MPI"                                           OFF)
-option(OPENMC_USE_MCPL        "Enable MCPL"                                          OFF)
 option(OPENMC_USE_UWUW        "Enable UWUW"                                          OFF)
+option(OPENMC_FORCE_VENDORED_LIBS "Explicitly use submodules defined in 'vendor'"    OFF)
 
 message(STATUS "OPENMC_USE_OPENMP ${OPENMC_USE_OPENMP}")
 message(STATUS "OPENMC_BUILD_TESTS ${OPENMC_BUILD_TESTS}")
@@ -46,8 +46,8 @@ message(STATUS "OPENMC_ENABLE_COVERAGE ${OPENMC_ENABLE_COVERAGE}")
 message(STATUS "OPENMC_USE_DAGMC ${OPENMC_USE_DAGMC}")
 message(STATUS "OPENMC_USE_LIBMESH ${OPENMC_USE_LIBMESH}")
 message(STATUS "OPENMC_USE_MPI ${OPENMC_USE_MPI}")
-message(STATUS "OPENMC_USE_MCPL ${OPENMC_USE_MCPL}")
 message(STATUS "OPENMC_USE_UWUW ${OPENMC_USE_UWUW}")
+message(STATUS "OPENMC_FORCE_VENDORED_LIBS ${OPENMC_FORCE_VENDORED_LIBS}")
 
 # Warnings for deprecated options
 foreach(OLD_OPT IN ITEMS "openmp" "profile" "coverage" "dagmc" "libmesh")
@@ -190,15 +190,6 @@ if(${HDF5_VERSION} VERSION_GREATER_EQUAL 1.12.0)
 endif()
 
 #===============================================================================
-# MCPL
-#===============================================================================
-
-if (OPENMC_USE_MCPL)
-  find_package(MCPL REQUIRED)
-  message(STATUS "Found MCPL: ${MCPL_DIR} (found version \"${MCPL_VERSION}\")")
-endif()
-
-#===============================================================================
 # Set compile/link flags based on which compiler is being used
 #===============================================================================
 
@@ -249,31 +240,30 @@ endif()
 # pugixml library
 #===============================================================================
 
-find_package_write_status(pugixml)
-if (NOT pugixml_FOUND)
+if(OPENMC_FORCE_VENDORED_LIBS)
   add_subdirectory(vendor/pugixml)
   set_target_properties(pugixml PROPERTIES CXX_STANDARD 14 CXX_EXTENSIONS OFF)
+else()
+  find_package_write_status(pugixml)
+  if (NOT pugixml_FOUND)
+    add_subdirectory(vendor/pugixml)
+    set_target_properties(pugixml PROPERTIES CXX_STANDARD 14 CXX_EXTENSIONS OFF)
+  endif()
 endif()
 
 #===============================================================================
 # {fmt} library
 #===============================================================================
 
-find_package_write_status(fmt)
-if (NOT fmt_FOUND)
+if(OPENMC_FORCE_VENDORED_LIBS)
   set(FMT_INSTALL ON CACHE BOOL "Generate the install target.")
   add_subdirectory(vendor/fmt)
-endif()
-
-#===============================================================================
-# xtensor header-only library
-#===============================================================================
-
-find_package_write_status(xtensor)
-if (NOT xtensor_FOUND)
-  add_subdirectory(vendor/xtl)
-  set(xtl_DIR ${CMAKE_CURRENT_BINARY_DIR}/vendor/xtl)
-  add_subdirectory(vendor/xtensor)
+else()
+  find_package_write_status(fmt)
+  if (NOT fmt_FOUND)
+    set(FMT_INSTALL ON CACHE BOOL "Generate the install target.")
+    add_subdirectory(vendor/fmt)
+  endif()
 endif()
 
 #===============================================================================
@@ -281,9 +271,13 @@ endif()
 #===============================================================================
 
 if(OPENMC_BUILD_TESTS)
-  find_package_write_status(Catch2)
-  if (NOT Catch2_FOUND)
+  if (OPENMC_FORCE_VENDORED_LIBS)
     add_subdirectory(vendor/Catch2)
+  else()
+    find_package_write_status(Catch2)
+    if (NOT Catch2_FOUND)
+      add_subdirectory(vendor/Catch2)
+    endif()
   endif()
 endif()
 
@@ -321,12 +315,14 @@ endif()
 #===============================================================================
 
 list(APPEND libopenmc_SOURCES
+  src/atomic_mass.cpp
   src/bank.cpp
   src/boundary_condition.cpp
   src/bremsstrahlung.cpp
   src/cell.cpp
   src/chain.cpp
   src/cmfd_solver.cpp
+  src/collision_track.cpp
   src/cross_sections.cpp
   src/dagmc.cpp
   src/distribution.cpp
@@ -360,6 +356,7 @@ list(APPEND libopenmc_SOURCES
   src/particle.cpp
   src/particle_data.cpp
   src/particle_restart.cpp
+  src/particle_type.cpp
   src/photon.cpp
   src/physics.cpp
   src/physics_common.cpp
@@ -407,17 +404,21 @@ list(APPEND libopenmc_SOURCES
   src/tallies/filter_materialfrom.cpp
   src/tallies/filter_mesh.cpp
   src/tallies/filter_meshborn.cpp
+  src/tallies/filter_meshmaterial.cpp
   src/tallies/filter_meshsurface.cpp
   src/tallies/filter_mu.cpp
   src/tallies/filter_musurface.cpp
   src/tallies/filter_parent_nuclide.cpp
   src/tallies/filter_particle.cpp
+  src/tallies/filter_particle_production.cpp
   src/tallies/filter_polar.cpp
+  src/tallies/filter_reaction.cpp
   src/tallies/filter_sph_harm.cpp
   src/tallies/filter_sptl_legendre.cpp
   src/tallies/filter_surface.cpp
   src/tallies/filter_time.cpp
   src/tallies/filter_universe.cpp
+  src/tallies/filter_weight.cpp
   src/tallies/filter_zernike.cpp
   src/tallies/tally.cpp
   src/tallies/tally_scoring.cpp
@@ -483,7 +484,7 @@ endif()
 # target_link_libraries treats any arguments starting with - but not -l as
 # linker flags. Thus, we can pass both linker flags and libraries together.
 target_link_libraries(libopenmc ${ldflags} ${HDF5_LIBRARIES} ${HDF5_HL_LIBRARIES}
-                      xtensor fmt::fmt ${CMAKE_DL_LIBS})
+                      fmt::fmt ${CMAKE_DL_LIBS})
 
 if(TARGET pugixml::pugixml)
   target_link_libraries(libopenmc pugixml::pugixml)
@@ -492,11 +493,11 @@ else()
 endif()
 
 if(OPENMC_USE_DAGMC)
-  target_compile_definitions(libopenmc PRIVATE DAGMC)
+  target_compile_definitions(libopenmc PRIVATE OPENMC_DAGMC_ENABLED)
   target_link_libraries(libopenmc dagmc-shared)
 
   if(OPENMC_USE_UWUW)
-    target_compile_definitions(libopenmc PRIVATE OPENMC_UWUW)
+    target_compile_definitions(libopenmc PRIVATE OPENMC_UWUW_ENABLED)
     target_link_libraries(libopenmc uwuw-shared)
   endif()
 elseif(OPENMC_USE_UWUW)
@@ -505,7 +506,7 @@ elseif(OPENMC_USE_UWUW)
 endif()
 
 if(OPENMC_USE_LIBMESH)
-  target_compile_definitions(libopenmc PRIVATE LIBMESH)
+  target_compile_definitions(libopenmc PRIVATE OPENMC_LIBMESH_ENABLED)
   target_link_libraries(libopenmc PkgConfig::LIBMESH)
 endif()
 
@@ -526,11 +527,6 @@ if (OPENMC_BUILD_TESTS)
   # Add cpp tests directory
   include(CTest)
   add_subdirectory(tests/cpp_unit_tests)
-endif()
-
-if (OPENMC_USE_MCPL)
-  target_compile_definitions(libopenmc PUBLIC OPENMC_MCPL)
-  target_link_libraries(libopenmc MCPL::mcpl)
 endif()
 
 #===============================================================================

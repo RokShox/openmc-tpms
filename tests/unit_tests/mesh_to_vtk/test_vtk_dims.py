@@ -90,7 +90,7 @@ def test_write_data_to_vtk(mesh, tmpdir):
     # kji (i changing fastest) orering is expected for input data
     # by using the volumes transposed as the data here, we can ensure the
     # normalization is happening correctly
-    data = mesh.volumes.T
+    data = mesh.volumes
 
     # RUN
     mesh.write_data_to_vtk(filename=filename, datasets={"label1": data, "label2": data})
@@ -131,7 +131,7 @@ def test_write_data_to_vtk_size_mismatch(mesh):
     mesh : openmc.StructuredMesh
         The mesh to test
     """
-    right_size = mesh.num_mesh_cells
+    right_size = mesh.n_elements
     data = np.random.random(right_size + 1)
 
     # Error message has \ in to escape characters that are otherwise recognized
@@ -139,7 +139,7 @@ def test_write_data_to_vtk_size_mismatch(mesh):
     # string when using the match argument as that uses regular expression
     expected_error_msg = (
         fr"The size of the dataset 'label' \({len(data)}\) should be equal to "
-        fr"the number of mesh cells \({mesh.num_mesh_cells}\)"
+        fr"the number of mesh cells \({mesh.n_elements}\)"
     )
     with pytest.raises(ValueError, match=expected_error_msg):
         mesh.write_data_to_vtk(filename="out.vtk", datasets={"label": data})
