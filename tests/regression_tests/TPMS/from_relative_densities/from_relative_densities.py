@@ -99,7 +99,7 @@ settings.volume_calculations = [volCalc]
 settings.export_to_xml()
 
 plots = openmc.Plots()
-plot = openmc.Plot.from_geometry(geometry)
+plot = openmc.SlicePlot.from_geometry(geometry)
 plot.basis = 'xy'
 plot.colors = mColors
 plot.color_by = 'material'
@@ -110,12 +110,12 @@ plots.append(plot)
 plots.export_to_xml()
 
 #plots = openmc.Plots()
-plot = openmc.Plot.from_geometry(geometry)
-plot.type = 'voxel'
-plot.colors = mColors
-plot.color_by = 'material'
-plot.origin = (0.,0.,0.)
-plot.width = (1., 1., 1.)
-plot.pixels = (1000, 1000, 1000)
-plots.append(plot)
-plots.export_to_xml()
+# plot = openmc.VoxelPlot.from_geometry(geometry)
+# plot.type = 'voxel'
+# plot.colors = mColors
+# plot.color_by = 'material'
+# plot.origin = (0.,0.,0.)
+# plot.width = (1., 1., 1.)
+# plot.pixels = (1000, 1000, 1000)
+# plots.append(plot)
+# plots.export_to_xml()

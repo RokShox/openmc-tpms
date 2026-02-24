@@ -52,7 +52,7 @@ settings.inactive = 10
 settings.export_to_xml()
 
 plots = openmc.Plots()
-plot = openmc.Plot.from_geometry(geometry)
+plot = openmc.SlicePlot.from_geometry(geometry)
 plot.basis = 'xy'
 plot.colors = mColors
 plot.color_by = 'material'
