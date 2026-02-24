@@ -56,12 +56,12 @@ void interpolate_1d(double coord, const std::vector<double>& grid_coords,
 
 InterpolationForTPMS::InterpolationForTPMS(std::vector<double> _x_grid,
   std::vector<double> _y_grid, std::vector<double> _z_grid,
-  xt::xarray<double> _matrix)
+  tensor::Tensor<double> _matrix)
   : FunctionForTPMS(_x_grid[0], _x_grid[_x_grid.size() - 1], _y_grid[0],
       _y_grid[_y_grid.size() - 1], _z_grid[0], _z_grid[_z_grid.size() - 1]),
     x_grid(_x_grid), y_grid(_y_grid), z_grid(_z_grid), matrix(_matrix)
 {
-  minimalValue = xt::amin(matrix)();
+  minimalValue = matrix.min();
   useFirstDerivatives = false;
   useSecondDerivatives = false;
 }

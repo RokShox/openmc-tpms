@@ -1,9 +1,7 @@
 #ifndef TPMS_FUNCTIONS
 #define TPMS_FUNCTIONS
 
-#include "xtensor/xarray.hpp"
-#include "xtensor/xtensor.hpp"
-
+#include "openmc/tensor.h"
 #include "openmc/vector.h"
 
 namespace openmc {
@@ -48,14 +46,14 @@ public:
 class InterpolationForTPMS : public FunctionForTPMS {
 public:
   InterpolationForTPMS(std::vector<double> _x_grid, std::vector<double> _y_grid,
-    std::vector<double> _z_grid, xt::xarray<double> _matrix);
+    std::vector<double> _z_grid, tensor::Tensor<double> _matrix);
   double fxyz(double x, double y, double z) const;
 
 public:
   std::vector<double> x_grid;
   std::vector<double> y_grid;
   std::vector<double> z_grid;
-  xt::xarray<double> matrix;
+  tensor::Tensor<double> matrix;
 };
 
 } // namespace openmc

@@ -671,6 +671,26 @@ public:
       s += data_[i];
     return s;
   }
+  
+  //! Min of all elements
+  T min() const
+  {
+    T m = data_[0];
+    for (size_t i = 1; i < data_.size(); ++i)
+      if (data_[i] < m)
+        m = data_[i];
+    return m;
+  }
+
+  //! Max of all elements
+  T max() const
+  {
+    T m = data_[0];
+    for (size_t i = 1; i < data_.size(); ++i)
+      if (data_[i] > m)
+        m = data_[i];
+    return m;
+  }
 
   //! Sum along an axis, reducing rank by 1 (defined out-of-line below)
   Tensor<T> sum(size_t axis) const;

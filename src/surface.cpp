@@ -1074,10 +1074,9 @@ SurfaceFunctionTPMS::SurfaceFunctionTPMS(pugi::xml_node surf_node)
     std::vector<double> z_grid = get_node_array<double>(surf_node, "z_grid");
     std::vector<std::size_t> shape = {
       x_grid.size(), y_grid.size(), z_grid.size()};
-    xt::xarray<double> m_pitch = get_node_xarray<double>(surf_node, "m_pitch");
+    tensor::Tensor<double> m_pitch = get_node_tensor<double>(surf_node, "m_pitch");
     m_pitch.resize(shape);
-    xt::xarray<double> m_isovalue =
-      get_node_xarray<double>(surf_node, "m_isovalue");
+    tensor::Tensor<double> m_isovalue = get_node_tensor<double>(surf_node, "m_isovalue");
     m_isovalue.resize(shape);
     fPitch = std::make_unique<InterpolationForTPMS>(
       InterpolationForTPMS(x_grid, y_grid, z_grid, m_pitch));
