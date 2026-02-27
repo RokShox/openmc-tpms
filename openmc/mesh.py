@@ -547,6 +547,10 @@ class StructuredMesh(MeshBase):
     def _grids(self):
         pass
 
+    @abstractmethod
+    def get_indices_at_coords(self, coords: Sequence[float]) -> tuple:
+        pass
+
     @property
     def vertices(self):
         """Return coordinates of mesh vertices in Cartesian coordinates. Also
@@ -1188,7 +1192,7 @@ class RegularMesh(StructuredMesh):
     @classmethod
     def from_domain(
         cls,
-        domain: HasBoundingBox,
+        domain: HasBoundingBox | BoundingBox,
         dimension: Sequence[int] | int = 1000,
         mesh_id: int | None = None,
         name: str = ''
@@ -1197,10 +1201,12 @@ class RegularMesh(StructuredMesh):
 
         Parameters
         ----------
-        domain : HasBoundingBox
+        domain : HasBoundingBox | openmc.BoundingBox
             The object passed in will be used as a template for this mesh. The
             bounding box of the property of the object passed will be used to
-            set the lower_left and upper_right and of the mesh instance
+            set the lower_left and upper_right and of the mesh instance.
+            Alternatively, a :class:`openmc.BoundingBox` can be passed
+            directly.
         dimension : Iterable of int | int
             The number of mesh cells in total or number of mesh cells in each
             direction (x, y, z). If a single integer is provided, the domain
@@ -1217,21 +1223,26 @@ class RegularMesh(StructuredMesh):
             RegularMesh instance
 
         """
-        if not hasattr(domain, 'bounding_box'):
-            raise TypeError("Domain must have a bounding_box property")
+        if isinstance(domain, BoundingBox):
+            bb = domain
+        elif hasattr(domain, 'bounding_box'):
+            bb = domain.bounding_box
+        else:
+            raise TypeError("Domain must be a BoundingBox or have a "
+                            "bounding_box property")
 
         mesh = cls(mesh_id=mesh_id, name=name)
-        mesh.lower_left = domain.bounding_box[0]
-        mesh.upper_right = domain.bounding_box[1]
+        mesh.lower_left = bb[0]
+        mesh.upper_right = bb[1]
         if isinstance(dimension, int):
             cv.check_greater_than("dimension", dimension, 1, equality=True)
             # If a single integer is provided, divide the domain into that many
             # mesh cells with roughly equal lengths in each direction
-            ideal_cube_volume = domain.bounding_box.volume / dimension
+            ideal_cube_volume = bb.volume / dimension
             ideal_cube_size = ideal_cube_volume ** (1 / 3)
             dimension = [
                 max(1, int(round(side / ideal_cube_size)))
-                for side in domain.bounding_box.width
+                for side in bb.width
             ]
         mesh.dimension = dimension
 
@@ -1424,6 +1435,47 @@ class RegularMesh(StructuredMesh):
         root_cell.fill = lattice
 
         return root_cell, cells
+
+    def get_indices_at_coords(self, coords: Sequence[float]) -> tuple:
+        """Finds the index of the mesh element at the specified coordinates.
+
+        .. versionadded:: 0.15.4
+
+        Parameters
+        ----------
+        coords : Sequence[float]
+            Cartesian coordinates of the point.
+
+        Returns
+        -------
+        tuple
+            Mesh indices matching the dimensionality of the mesh
+
+        """
+        ndim = self.n_dimension
+        if len(coords) < ndim:
+            raise ValueError(
+                f"coords must have at least {ndim} values for a "
+                f"{ndim}D mesh, got {len(coords)}"
+            )
+
+        coords_array = np.array(coords[:ndim])
+        lower_left = np.array(self.lower_left)
+        upper_right = np.array(self.upper_right)
+        dimension = np.array(self.dimension)
+
+        if np.any(coords_array < lower_left) or np.any(coords_array > upper_right):
+            raise ValueError(
+                f"coords {tuple(coords_array)} are outside mesh bounds "
+                f"[{tuple(lower_left)}, {tuple(upper_right)}]"
+            )
+
+        # Calculate spacing for each dimension
+        spacing = (upper_right - lower_left) / dimension
+
+        # Calculate indices for each coordinate
+        indices = np.floor((coords_array - lower_left) / spacing).astype(int)
+        return tuple(int(i) for i in indices[:ndim])
 
 
 def Mesh(*args, **kwargs):
@@ -1636,6 +1688,11 @@ class RectilinearMesh(StructuredMesh):
 
         return element
 
+    def get_indices_at_coords(self, coords: Sequence[float]) -> tuple:
+        raise NotImplementedError(
+            "get_indices_at_coords is not yet implemented for RectilinearMesh"
+        )
+
 
 class CylindricalMesh(StructuredMesh):
     """A 3D cylindrical mesh
@@ -1828,14 +1885,14 @@ class CylindricalMesh(StructuredMesh):
             self,
             coords: Sequence[float]
         ) -> tuple[int, int, int]:
-        """Finds the index of the mesh voxel at the specified x,y,z coordinates.
+        """Finds the index of the mesh element at the specified coordinates.
 
         .. versionadded:: 0.15.0
 
         Parameters
         ----------
         coords : Sequence[float]
-            The x, y, z axis coordinates
+            Cartesian coordinates of the point.
 
         Returns
         -------
@@ -1904,7 +1961,7 @@ class CylindricalMesh(StructuredMesh):
     @classmethod
     def from_domain(
         cls,
-        domain: HasBoundingBox,
+        domain: HasBoundingBox | BoundingBox,
         dimension: Sequence[int] = (10, 10, 10),
         mesh_id: int | None = None,
         phi_grid_bounds: Sequence[float] = (0.0, 2*pi),
@@ -1915,10 +1972,11 @@ class CylindricalMesh(StructuredMesh):
 
         Parameters
         ----------
-        domain : HasBoundingBox
+        domain : HasBoundingBox | openmc.BoundingBox
             The object passed in will be used as a template for this mesh. The
             bounding box of the property of the object passed will be used to
-            set the r_grid, z_grid ranges.
+            set the r_grid, z_grid ranges. Alternatively, a
+            :class:`openmc.BoundingBox` can be passed directly.
         dimension : Iterable of int
             The number of equally spaced mesh cells in each direction (r_grid,
             phi_grid, z_grid)
@@ -1939,11 +1997,13 @@ class CylindricalMesh(StructuredMesh):
             CylindricalMesh instance
 
         """
-        if not hasattr(domain, 'bounding_box'):
-            raise TypeError("Domain must have a bounding_box property")
-
-        # loaded once to avoid recalculating bounding box
-        cached_bb = domain.bounding_box
+        if isinstance(domain, BoundingBox):
+            cached_bb = domain
+        elif hasattr(domain, 'bounding_box'):
+            cached_bb = domain.bounding_box
+        else:
+            raise TypeError("Domain must be a BoundingBox or have a "
+                            "bounding_box property")
 
         if enclose_domain:
             outer_radius = 0.5 * np.linalg.norm(cached_bb.width[:2])
@@ -2290,7 +2350,7 @@ class SphericalMesh(StructuredMesh):
     @classmethod
     def from_domain(
         cls,
-        domain: HasBoundingBox,
+        domain: HasBoundingBox | BoundingBox,
         dimension: Sequence[int] = (10, 10, 10),
         mesh_id: int | None = None,
         phi_grid_bounds: Sequence[float] = (0.0, 2*pi),
@@ -2302,10 +2362,11 @@ class SphericalMesh(StructuredMesh):
 
         Parameters
         ----------
-        domain : HasBoundingBox
+        domain : HasBoundingBox | openmc.BoundingBox
             The object passed in will be used as a template for this mesh. The
             bounding box of the property of the object passed will be used to
-            set the r_grid, phi_grid, and theta_grid ranges.
+            set the r_grid, phi_grid, and theta_grid ranges. Alternatively, a
+            :class:`openmc.BoundingBox` can be passed directly.
         dimension : Iterable of int
             The number of equally spaced mesh cells in each direction (r_grid,
             phi_grid, theta_grid). Spacing is in angular space (radians) for
@@ -2330,11 +2391,13 @@ class SphericalMesh(StructuredMesh):
             SphericalMesh instance
 
         """
-        if not hasattr(domain, 'bounding_box'):
-            raise TypeError("Domain must have a bounding_box property")
-
-        # loaded once to avoid recalculating bounding box
-        cached_bb = domain.bounding_box
+        if isinstance(domain, BoundingBox):
+            cached_bb = domain
+        elif hasattr(domain, 'bounding_box'):
+            cached_bb = domain.bounding_box
+        else:
+            raise TypeError("Domain must be a BoundingBox or have a "
+                            "bounding_box property")
 
         if enclose_domain:
             outer_radius = 0.5 * np.linalg.norm(cached_bb.width)
@@ -2464,6 +2527,11 @@ class SphericalMesh(StructuredMesh):
         arr[..., 1] = y + origin[1]
         arr[..., 2] = z + origin[2]
         return arr
+
+    def get_indices_at_coords(self, coords: Sequence[float]) -> tuple:
+        raise NotImplementedError(
+            "get_indices_at_coords is not yet implemented for SphericalMesh"
+        )
 
 
 def require_statepoint_data(func):
