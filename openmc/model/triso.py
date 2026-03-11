@@ -1,4 +1,4 @@
-from abc import ABC, abstractproperty, abstractmethod
+from abc import ABC, abstractmethod
 from collections import Counter, defaultdict
 from collections.abc import Iterable
 import copy
@@ -152,15 +152,18 @@ class _Container(ABC):
     def center(self, center):
         self._center = center
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def limits(self):
         pass
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def cell_length(self):
         pass
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def volume(self):
         pass
 
