@@ -476,6 +476,10 @@ class Surface(IDManagerMixin, ABC):
         coeffs = get_elem_list(elem, "coeffs", float)
         kwargs.update(dict(zip(cls._coeff_keys, coeffs)))
 
+        # TPMS Case
+        if surf_type == "tpms":
+            kwargs['surface_type'] = elem.get('surface_type')
+
         return cls(**kwargs)
 
     @staticmethod
