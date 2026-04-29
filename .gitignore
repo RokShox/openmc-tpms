@@ -104,6 +104,9 @@ CMakeSettings.json
 # Visual Studio Code configuration files
 .vscode/
 
+# Claude Code agent tools (cached/generated artifacts)
+.claude/cache/
+
 # Python pickle files
 *.pkl
 
