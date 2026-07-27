@@ -309,7 +309,7 @@ void Particle::event_advance()
   }
 
   // Score track-length estimate of k-eff
-  if (settings::run_mode == RunMode::EIGENVALUE && type().is_neutron()) {
+  if (settings::eigenvalue_like() && type().is_neutron()) {
     keff_tally_tracklength() += wgt() * distance * macro_xs().nu_fission;
   }
 
@@ -390,7 +390,7 @@ void Particle::event_collide()
 {
 
   // Score collision estimate of keff
-  if (settings::run_mode == RunMode::EIGENVALUE && type().is_neutron()) {
+  if (settings::eigenvalue_like() && type().is_neutron()) {
     keff_tally_collision() += wgt() * macro_xs().nu_fission / macro_xs().total;
   }
 
@@ -600,7 +600,7 @@ void Particle::event_death()
 
   // Record the number of progeny created by this particle.
   // This data will be used to efficiently sort the fission bank.
-  if (settings::run_mode == RunMode::EIGENVALUE ||
+  if (settings::eigenvalue_like() ||
       settings::use_shared_secondary_bank) {
     simulation::progeny_per_particle[current_work()] = n_progeny();
   }
@@ -926,7 +926,7 @@ void Particle::write_restart() const
     // Get source site data for the particle that got lost
     int64_t i = current_work();
     SourceSite site;
-    if (settings::run_mode == RunMode::EIGENVALUE) {
+    if (settings::eigenvalue_like()) {
       site = simulation::source_bank[i];
     } else if (settings::run_mode == RunMode::FIXED_SOURCE &&
                settings::use_shared_secondary_bank &&
