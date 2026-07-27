@@ -205,6 +205,12 @@ extern double weight_cutoff;       //!< Weight cutoff for Russian roulette
 extern double weight_survive;      //!< Survival weight after Russian roulette
 
 bool eigenvalue_like();
+// implicit solvers
+extern int implicit_maxiter;
+extern std::string implicit_solver;
+extern double implicit_atol;
+extern double implicit_ftol;
+extern double implicit_margin;
 
 } // namespace settings
 
