@@ -52,6 +52,8 @@ void read_particle_restart(Particle& p, RunMode& previous_run_mode)
     previous_run_mode = RunMode::EIGENVALUE;
   } else if (mode == "fixed source") {
     previous_run_mode = RunMode::FIXED_SOURCE;
+  } else if (mode == "subcritical multiplication") {
+    previous_run_mode = RunMode::SUBCRITICAL_MULTIPLICATION;
   }
   read_dataset(file_id, "id", p.id());
   int type;
