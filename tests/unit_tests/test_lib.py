@@ -315,6 +315,15 @@ def test_settings(lib_init):
     settings.seed = 11
 
 
+def test_feature_enabled():
+    assert isinstance(openmc.lib.feature_enabled('dagmc'), bool)
+    assert isinstance(openmc.lib.feature_enabled('libmesh'), bool)
+    assert isinstance(openmc.lib.feature_enabled('strict_fp'), bool)
+    assert isinstance(openmc.lib.feature_enabled('uwuw'), bool)
+    with pytest.raises(exc.InvalidArgumentError, match="Unknown build feature"):
+        openmc.lib.feature_enabled('not-a-feature')
+
+
 def test_tally_mapping(lib_init):
     tallies = openmc.lib.tallies
     assert isinstance(tallies, Mapping)
@@ -652,13 +661,16 @@ def test_regular_mesh(lib_init):
         elem_vols = vols.by_element(i)
         assert sum(f[1] for f in elem_vols) == pytest.approx(1.26 * 1.26 / 4)
 
-    # If the mesh extends beyond the boundaries of the model, we should get a
-    # GeometryError
+    # If the mesh extends beyond the boundaries of the model, outside regions
+    # should be treated as void.
     mesh.dimension = (1, 1, 1)
     mesh.set_parameters(lower_left=(-1.0, -1.0, -0.5),
                         upper_right=(1.0, 1.0, 0.5))
-    with pytest.raises(exc.GeometryError, match="not fully contained"):
-        vols = mesh.material_volumes()
+    vols = mesh.material_volumes()
+    assert vols.num_elements == 1
+    elem_vols = vols.by_element(0)
+    assert any(mat_id is None for mat_id, _ in elem_vols)
+    assert sum(f[1] for f in elem_vols) == pytest.approx(4.0)
 
 
 def test_regular_mesh_get_plot_bins(lib_init):
