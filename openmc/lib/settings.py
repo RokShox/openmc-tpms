@@ -6,9 +6,10 @@ from .error import _error_handler
 
 _RUN_MODES = {1: 'fixed source',
               2: 'eigenvalue',
-              3: 'plot',
-              4: 'particle restart',
-              5: 'volume'}
+              3: 'subcritical multiplication',
+              4: 'plot',
+              5: 'particle restart',
+              6: 'volume'}
 
 _dll.openmc_set_seed.argtypes = [c_int64]
 _dll.openmc_get_seed.restype = c_int64
