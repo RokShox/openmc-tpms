@@ -102,6 +102,22 @@ As with the ``power`` argument, you can provide a different source rate for each
 timestep in the calculation. A zero source rate for a given timestep will result
 in a decay-only step, where all reaction rates are zero.
 
+The same source-rate normalization can be used when
+:attr:`Settings.run_mode` is ``'subcritical multiplication'``. In that mode,
+transport tallies are per simulated particle (a mixture of external-source and
+fission-bank sites), so the operator scales reaction rates by
+:math:`1/(1-k)`. Here :math:`k` is the **source-driven multiplication** from
+that transport solve, not the fundamental-mode eigenvalue
+:math:`k_{\mathrm{eff}}`. After this scaling, reaction rates match an analog
+fixed-source calculation at the same external source rate.
+
+Energy-based normalization modes (``"fission-q"`` and
+``"energy-deposition"``) do not apply an extra :math:`1/(1-k)` factor: the
+same missing scale appears in both the reaction rates and the energy tally
+and cancels in the power ratio. User-defined tallies are not scaled
+automatically; they remain per simulated particle (see
+:ref:`usersguide_settings`).
+
 Caveats
 -------
 

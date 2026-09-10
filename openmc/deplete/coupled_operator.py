@@ -119,6 +119,12 @@ class CoupledOperator(OpenMCOperator):
         ``"fission-q"`` uses the fission Q values from the depletion chain to
         compute the  total energy deposited. ``"source-rate"`` normalizes
         tallies based on the source rate (for fixed source calculations).
+        When :attr:`openmc.Settings.run_mode` is ``'subcritical
+        multiplication'``, source-rate reaction rates are further scaled by
+        :math:`1/(1-k)` using the source-driven multiplication from that
+        transport solve, not the fundamental-mode eigenvalue. Energy-based
+        modes (``"fission-q"`` and ``"energy-deposition"``) do not apply this
+        extra factor.
     fission_q : dict, optional
         Dictionary of nuclides and their fission Q values [eV]. If not given,
         values will be pulled from the ``chain_file``. Only applicable
@@ -347,7 +353,10 @@ class CoupledOperator(OpenMCOperator):
             score = "heating" if self.model.settings.photon_transport else "heating-local"
             self._normalization_helper = EnergyScoreHelper(score)
         else:
-            self._normalization_helper = SourceRateHelper()
+            subcritical = (self.model.settings.run_mode
+                           == 'subcritical multiplication')
+            self._normalization_helper = SourceRateHelper(
+                subcritical_multiplication=subcritical)
 
         # Select and create fission yield helper
         fission_helper = self._fission_helpers[fission_yield_mode]

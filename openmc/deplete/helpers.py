@@ -544,11 +544,39 @@ class EnergyScoreHelper(EnergyNormalizationHelper):
 
 
 class SourceRateHelper(NormalizationHelper):
+    """Normalize reaction rates using a known source rate.
+
+    Parameters
+    ----------
+    subcritical_multiplication : bool, optional
+        If True, scale the source rate by :math:`1/(1-k)` where :math:`k` is
+        the source-driven multiplication from the last transport solve
+        (:func:`openmc.lib.keff`), not the fundamental-mode eigenvalue. This
+        accounts for mixed external-source / fission-bank sampling when
+        ``run_mode='subcritical multiplication'``. Default is False.
+
+    """
+
+    def __init__(self, subcritical_multiplication=False):
+        super().__init__()
+        check_type('subcritical_multiplication', subcritical_multiplication,
+                   bool)
+        self.subcritical_multiplication = subcritical_multiplication
+
     def prepare(self, *args, **kwargs):
         pass
 
     def factor(self, source_rate):
-        return source_rate
+        if not self.subcritical_multiplication:
+            return source_rate
+        k = openmc.lib.keff()[0]
+        if k >= 1.0:
+            raise RuntimeError(
+                "Subcritical multiplication depletion requires k < 1; "
+                f"got k = {k}. Cannot scale source-normalized reaction "
+                "rates by 1/(1-k)."
+            )
+        return source_rate / (1.0 - k)
 
 # ------------------------------------
 # Helper for collapsing fission yields

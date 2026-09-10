@@ -578,7 +578,8 @@ void Particle::event_death()
   const auto k_tracklength = keff_tally_tracklength();
   const auto leakage = keff_tally_leakage();
 
-  if (settings::run_mode == RunMode::EIGENVALUE) {
+  // Accumulate k estimators for eigenvalue and subcritical multiplication
+  if (settings::eigenvalue_like()) {
     if (k_absorption != 0.0) {
 #pragma omp atomic
       global_tally_absorption += k_absorption;
