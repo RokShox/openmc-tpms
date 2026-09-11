@@ -27,3 +27,12 @@ div#notebook-container.container {
     width: auto;
     box-shadow: none;
 }
+
+html {
+    font-size: 112.5%; /* ~18px if the browser default is 16px */
+  }
+  
+  /* optional: code and literals often stay smaller than body text */
+  code, pre, kbd, samp, tt {
+    font-size: 0.95em;
+  }
