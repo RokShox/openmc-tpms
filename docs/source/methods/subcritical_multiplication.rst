@@ -55,6 +55,7 @@ picture for :math:`M` [Kobayashi]_:
         \implies \frac{k}{1-k} &= \frac{k_q}{1-k_s}\\
         k &= \frac{k_q}{1 - k_s + k_q}
     \end{align*}
+
 Where :math:`k_q` is the multiplication factor of source neutrons, and :math:`k_s`
 is the multiplication factor of fission neutrons, which together define an overall
 subcritical multiplication factor :math:`k`. From the above it is clear that 
@@ -73,6 +74,7 @@ It is therefore necessary to perform fixed source simulations to accurately dete
 subcritical multiplication and the flux distribution in ADS's.
 
 .. _methods_subcritical-multiplication-methods:
+
 ----------------------------------
 Subcritical Multiplication Methods
 ----------------------------------
